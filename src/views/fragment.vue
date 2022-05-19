@@ -1,57 +1,57 @@
 <template>
-  <div class="home">
+<div class="home">
     <div class="demoMain">
         <div class="mainBox">
-          <div class="pd" style="display: flex;">
-            <span class="lb" style="margin-right: 10px;">类型 :</span> <span class="types">
-              <el-radio v-model="radio" label="1">mp3</el-radio>
-              <el-radio v-model="radio" label="2">wav</el-radio>
-              <el-radio v-model="radio" label="3">pcm</el-radio>
-            </span>
-          </div>
-          <div class="pd" style="display: flex;">
-            <span class="lb" style="width: 37px;height: 20px;margin-right: 10px;">提示 :</span>
-            <span v-if="radio === '1'" style="width: 90%;text-align: start;">mp3编码器稳定版，支持边录边转码(Worker)，采样率范围48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000</span>
-            <span v-else-if="radio === '2'" style="width: 90%;text-align: start;">wav编码器稳定版，wav转码超快，支持位数8位、16位（填在比特率里面），采样率取值无限制</span>
-            <span v-else style="width: 90%;text-align: start;"> pcm编码器稳定版，pcm转码超快，pcm为未封装的原始音频数据，pcm数据文件无法直接播放；支持位数8位、16位（填在比特率里面），采样率取值无限制</span>
-          </div>
-          <div class="pd" style="display: flex;">
-            <span class="lb" style="margin-right: 10px;">比特率 :</span> <el-input v-model="bitRate" size="mini" style="width: 50px;margin-right: 10px;"></el-input>
-            kbps，越大音质越好
-          </div>
-          <div style="display: flex;">
-            <span class="lb" style="margin-right: 10px;">采样率 :</span>  <el-input v-model="sampleRate" size="mini" style="width: 100px;margin-right: 10px;"></el-input>
-            hz，越大细节越丰富
-          </div>
-        </div>
-
-        <div class="mainBox">
-          <div style="height:100px;width:300px;border:1px solid #ccc;box-sizing: border-box;display:inline-block;vertical-align:bottom" class="ctrlProcessWave"></div>
-          <div style="height:40px;width:300px;display:inline-block;background:#999;position:relative;vertical-align:bottom;margin-left: 10px;">
-              <div class="ctrlProcessX" style="height:40px;background:#0B1;position:absolute;" :style="{width:powerLevel+'%'}"></div>
-              <div class="ctrlProcessT" style="line-height:40px; position: relative;">{{ duration+"/"+powerLevel }}</div>
-          </div>
-        </div>
-
-        <div class="mainBox">
-          <div class="pd btns">
-            <div>
-              <button @click="recOpen" style="margin-right:10px">打开录音,请求权限</button>
-              <button @click="recClose" style="margin-right:0">关闭录音,释放资源</button>
+            <div class="pd" style="display: flex;">
+                <span class="lb" style="margin-right: 10px;">类型 :</span> <span class="types">
+                <el-radio v-model="radio" label="1">pcm</el-radio>
+                </span>
             </div>
+            <div class="pd" style="display: flex;">
+                <span class="lb" style="width: 37px;height: 20px;margin-right: 10px;">提示 :</span>
+                <span style="width: 90%;text-align: start;"> pcm编码器稳定版，pcm转码超快，pcm为未封装的原始音频数据，pcm数据文件无法直接播放；支持位数8位、16位（填在比特率里面），采样率取值无限制</span>
+            </div>
+            <div class="pd" style="display: flex;">
+                <span class="lb" style="margin-right: 10px;">分片间隔:</span> <el-input v-model="sendInterval" size="mini" style="width: 100px;margin-right: 10px;"></el-input>
+                ms，建议>=1000ms
+            </div>
+            <div class="pd" style="display: flex;">
+                <span class="lb" style="margin-right: 10px;">比特率:</span> <el-input v-model="bitRate" size="mini" style="width: 50px;margin-right: 10px;"></el-input>
+                kbps，越大音质越好
+            </div>
+            <div style="display: flex;">
+                <span class="lb" style="margin-right: 10px;">采样率:</span>  <el-input v-model="sampleRate" size="mini" style="width: 100px;margin-right: 10px;"></el-input>
+                hz，越大细节越丰富
+            </div>
+        </div>
 
-            <button @click="recStart">录制</button>
-            <button @click="recStop">停止</button>
+        <div class="mainBox">
+            <div style="height:100px;width:300px;border:1px solid #ccc;box-sizing: border-box;display:inline-block;vertical-align:bottom" class="ctrlProcessWave"></div>
+            <div style="height:40px;width:300px;display:inline-block;background:#999;position:relative;vertical-align:bottom;margin-left: 10px;">
+                <div class="ctrlProcessX" style="height:40px;background:#0B1;position:absolute;" :style="{width:powerLevel+'%'}"></div>
+                <div class="ctrlProcessT" style="line-height:40px; position: relative;">{{ duration+"/"+powerLevel }}</div>
+            </div>
+        </div>
 
-            <span style="display: inline-block;">
-              <button @click="recPause">暂停</button>
-              <button @click="recResume">继续</button>
-            </span>
-            <span style="display: inline-block;">
-              <button @click="recPlayLast" v-if="type !== 'pcm'">播放</button>
-              <button @click="recUploadLast" v-if="type === 'pcm'">语音转文字</button>
-            </span>
-          </div>
+        <div class="mainBox">
+            <div class="pd btns">
+                <div>
+                    <button @click="recOpen" style="margin-right:10px">打开录音,请求权限</button>
+                    <button @click="recClose" style="margin-right:0">关闭录音,释放资源</button>
+                </div>
+
+                <button @click="recStart">录制</button>
+                <button @click="recStop">停止</button>
+
+                <span style="display: inline-block;">
+                    <button @click="recPause">暂停</button>
+                    <button @click="recResume">继续</button>
+                </span>
+                <span style="display: inline-block;">
+                    <button @click="recPlayLast" v-if="type !== 'pcm'">播放</button>
+                    <button @click="recUploadLast" v-if="type === 'pcm'">语音转文字</button>
+                    </span>
+            </div>
         </div>
 
         <div class="mainBox">
@@ -86,19 +86,19 @@
         </div>
     </div>
 
-        <div v-if="recOpenDialogShow" style="z-index:99999;width:100%;height:100%;top:0;left:0;position:fixed;background:rgba(0,0,0,0.3);">
-          <div style="display:flex;height:100%;align-items:center;">
-              <div style="flex:1;"></div>
-              <div style="width:240px;background:#fff;padding:15px 20px;border-radius: 10px;">
-                  <div style="padding-bottom:10px;">录音功能需要麦克风权限，请允许；如果未看到任何请求，请点击忽略~</div>
-                  <div style="text-align:center;"><a @click="waitDialogClick" style="color:#0B1">忽略</a></div>
-              </div>
-              <div style="flex:1;"></div>
-          </div>
-      </div>
+    <div v-if="recOpenDialogShow" style="z-index:99999;width:100%;height:100%;top:0;left:0;position:fixed;background:rgba(0,0,0,0.3);">
+        <div style="display:flex;height:100%;align-items:center;">
+            <div style="flex:1;"></div>
+            <div style="width:240px;background:#fff;padding:15px 20px;border-radius: 10px;">
+                <div style="padding-bottom:10px;">录音功能需要麦克风权限，请允许；如果未看到任何请求，请点击忽略~</div>
+                <div style="text-align:center;"><a @click="waitDialogClick" style="color:#0B1">忽略</a></div>
+            </div>
+            <div style="flex:1;"></div>
+        </div>
+    </div>
 
     </div>
-  </div>
+</div>
 </template>
 
 <script>
@@ -116,21 +116,30 @@ import 'recorder-core/src/extensions/waveview'
 import { sendPcm, getResult } from '../api/sendData'
 
 export default {
-  name: 'Home',
+  name: 'fragment',
   data () {
     return {
       radio: '1',
       Rec: Recorder,
-      type: 'mp3',
+      type: 'pcm',
       bitRate: 16,
       sampleRate: 16000,
       rec: 0,
+      stream: 0,
       duration: 0,
       powerLevel: 0,
       recOpenDialogShow: 0,
       logs: [],
       transformResult: '',
-      sid: ''
+      sid: '',
+      sendInterval: 1000,
+      realTimeSendTryEncBusy: 0,
+      realTimeSendTryTime: 0,
+      realTimeSendTryNumber: 0,
+      transferUploadNumberMax: 0,
+      realTimeSendTryChunk: null,
+      pcm: [],
+      pcmSampleRate: 0
     }
   },
   watch: {
@@ -164,6 +173,74 @@ export default {
     )
   },
   methods: {
+    // =====实时处理核心函数==========
+    realTimeSendTry (buffers, bufferSampleRate, isClose) {
+      var t1 = Date.now()
+      if (this.realTimeSendTryTime === 0) {
+        this.realTimeSendTryTime = t1
+        this.realTimeSendTryEncBusy = 0
+        this.realTimeSendTryNumber = 0
+        this.transferUploadNumberMax = 0
+        this.realTimeSendTryChunk = null
+      };
+      const intervalTime = t1 - this.realTimeSendTryTime
+      if (!isClose && (intervalTime < this.sendInterval)) {
+        console.log('达到指定间隔')
+        return// 控制缓冲达到指定间隔才进行传输
+      };
+      this.realTimeSendTryTime = t1
+      //   var number = ++this.realTimeSendTryNumber
+      if (buffers.length > 0) {
+        // 借用SampleData函数进行数据的连续处理，采样率转换是顺带的，得到新的pcm数据
+        var chunk = Recorder.SampleData(buffers, bufferSampleRate, this.sampleRate, this.realTimeSendTryChunk, { frameType: isClose ? '' : this.type })
+
+        // 清理已处理完的缓冲数据，释放内存以支持长时间录音，最后完成录音时不能调用stop，因为数据已经被清掉了
+        for (var i = this.realTimeSendTryChunk ? this.realTimeSendTryChunk.index : 0; i < chunk.index; i++) {
+          buffers[i] = null
+        };
+        this.realTimeSendTryChunk = chunk// 此时的chunk.data就是原始的音频16位pcm数据（小端LE），直接保存即为16位pcm文件、加个wav头即为wav文件、丢给mp3编码器转一下码即为mp3文件
+
+        this.pcm = chunk.data
+        this.pcmSampleRate = chunk.sampleRate
+      };
+
+      // 没有新数据，或结束时的数据量太小，不能进行mock转码
+      if ((chunk.data.length === 0 || isClose) && chunk.data.length < 2000) {
+        //   TransferUpload(number, null, 0, null, isClose)
+        return
+      };
+
+      // 实时编码队列阻塞处理
+      if (!isClose) {
+        if (this.realTimeSendTryEncBusy >= 2) {
+          this.reclog('编码队列阻塞，已丢弃一帧', 1)
+          return
+        };
+      };
+      this.realTimeSendTryEncBusy++
+
+      // 通过mock方法实时转码成mp3、wav；pcm格式可以不经过此操作，直接发送chunk.data
+      var encStartTime = Date.now()
+      var recMock = Recorder({
+        type: this.type,
+        sampleRate: this.sampleRate, // 采样率
+        bitRate: this.bitRate // 比特率
+      })
+      recMock.mock(chunk.data, chunk.sampleRate)
+      recMock.stop(function (blob, duration) {
+        this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
+        blob.encTime = Date.now() - encStartTime
+
+        // 转码好就推入传输
+        // TransferUpload(number, blob, duration, recMock, isClose)
+      }, function (msg) {
+        this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
+
+        // 转码错误？没想到什么时候会产生错误！
+        this.reclog('不应该出现的错误:' + msg, 1)
+      })
+    },
+
     recOpen () {
       var This = this
       var rec = this.rec = Recorder({
@@ -173,7 +250,7 @@ export default {
         onProcess: function (buffers, powerLevel, duration, sampleRate) {
           This.duration = duration
           This.powerLevel = powerLevel
-
+          This.realTimeSendTry(buffers, sampleRate, false)
           This.wave.input(buffers[buffers.length - 1], powerLevel, sampleRate)
         }
       })
@@ -184,6 +261,7 @@ export default {
 
       rec.open(function () {
         This.dialogCancel()
+        rec.start()// 开始录音
         This.reclog('已打开:' + This.type + ' ' + This.sampleRate + 'hz ' + This.bitRate + 'kbps', 2)
 
         This.wave = Recorder.WaveView({ elem: '.ctrlProcessWave' })
@@ -239,17 +317,18 @@ export default {
         This.reclog('未打开录音', 1)
         return
       }
-
-      rec.stop(function (blob, duration) {
-        This.reclog('已录制:', 1, {
-          blob: blob,
-          duration: duration,
-          rec: rec
-        })
-        // console.log(blob, duration, rec)
-      }, function (s) {
-        This.reclog('录音失败：' + s, 1)
-      })
+      rec.close()
+      This.realTimeSendTry([], 0, false)
+    //   rec.stop(function (blob, duration) {
+    //     This.reclog('已录制:', 1, {
+    //       blob: blob,
+    //       duration: duration,
+    //       rec: rec
+    //     })
+    //     // console.log(blob, duration, rec)
+    //   }, function (s) {
+    //     This.reclog('录音失败：' + s, 1)
+    //   })
     },
     recPlayLast () {
       if (!this.recLogLast) {
@@ -301,7 +380,7 @@ export default {
       })
     },
     showDialog () {
-      // 我们可以选择性的弹一个对话框：为了防止移动端浏览器存在第三种情况：用户忽略，并且（或者国产系统UC系）浏览器没有任何回调
+    // 我们可以选择性的弹一个对话框：为了防止移动端浏览器存在第三种情况：用户忽略，并且（或者国产系统UC系）浏览器没有任何回调
       if (!/mobile/i.test(navigator.userAgent)) {
         return// 只在移动端开启没有权限请求的检测
       };
@@ -340,10 +419,10 @@ export default {
 
       if (This.radio === '3') {
         This.logs.unshift({ msg: '<span style="color:orange">正在转码成wav...</span>' })
-        const wavData = o.res.blob
+        // const wavData = o.res.blob
         // eslint-disable-next-line no-undef
-        audio.src = (window.URL || webkitURL).createObjectURL(wavData)
-        audio.play()
+        // audio.src = (window.URL || webkitURL).createObjectURL(wavData)
+        // audio.play()
         This.logs.unshift({ msg: '<span style="color:green">已转码成wav播放</span>' })
         // wav(wavData, function (blob) {
         //   end(blob)
@@ -354,7 +433,7 @@ export default {
       }
     },
     recdown: function (idx) {
-      // eslint-disable-next-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
       var This = this
       var o = this.logs[this.logs.length - idx - 1]
       o.down = (o.down || 0) + 1
@@ -367,7 +446,7 @@ export default {
       downA.click()
     },
     recdown64: function (idx) {
-      // eslint-disable-next-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
       var This = this
       var o = this.logs[this.logs.length - idx - 1]
       var reader = new FileReader()
@@ -395,8 +474,8 @@ export default {
     getTime () {
       var now = new Date()
       var t = ('0' + now.getHours()).substr(-2) +
-                ':' + ('0' + now.getMinutes()).substr(-2) +
-                ':' + ('0' + now.getSeconds()).substr(-2)
+            ':' + ('0' + now.getMinutes()).substr(-2) +
+            ':' + ('0' + now.getSeconds()).substr(-2)
       return t
     },
     intp (s, len) {
