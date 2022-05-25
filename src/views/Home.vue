@@ -173,7 +173,7 @@ export default {
         onProcess: function (buffers, powerLevel, duration, sampleRate) {
           This.duration = duration
           This.powerLevel = powerLevel
-
+          console.log(buffers.length)
           This.wave.input(buffers[buffers.length - 1], powerLevel, sampleRate)
         }
       })
@@ -246,7 +246,7 @@ export default {
           duration: duration,
           rec: rec
         })
-        // console.log(blob, duration, rec)
+        console.log(blob, duration, rec)
       }, function (s) {
         This.reclog('录音失败：' + s, 1)
       })

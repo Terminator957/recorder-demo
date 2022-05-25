@@ -13,7 +13,7 @@
             </div>
             <div class="pd" style="display: flex;">
                 <span class="lb" style="margin-right: 10px;">分片间隔:</span> <el-input v-model="sendInterval" size="mini" style="width: 100px;margin-right: 10px;"></el-input>
-                ms，建议>=1000ms
+                ms,这个值可以设置很大，但不能设置很低，毕竟转码和传输还是要花费一定时间的，设备性能低下可能还处理不过来。
             </div>
             <div class="pd" style="display: flex;">
                 <span class="lb" style="margin-right: 10px;">比特率:</span> <el-input v-model="bitRate" size="mini" style="width: 50px;margin-right: 10px;"></el-input>
@@ -26,7 +26,7 @@
         </div>
 
         <div class="mainBox">
-            <div style="height:100px;width:300px;border:1px solid #ccc;box-sizing: border-box;display:inline-block;vertical-align:bottom" class="ctrlProcessWave"></div>
+            <div style="height:100px;width:300px;border:1px solid #ccc;box-sizing: border-box;display:inline-block;vertical-align:bottom" class="processWave"></div>
             <div style="height:40px;width:300px;display:inline-block;background:#999;position:relative;vertical-align:bottom;margin-left: 10px;">
                 <div class="ctrlProcessX" style="height:40px;background:#0B1;position:absolute;" :style="{width:powerLevel+'%'}"></div>
                 <div class="ctrlProcessT" style="line-height:40px; position: relative;">{{ duration+"/"+powerLevel }}</div>
@@ -36,21 +36,10 @@
         <div class="mainBox">
             <div class="pd btns">
                 <div>
-                    <button @click="recOpen" style="margin-right:10px">打开录音,请求权限</button>
+                    <button @click="recOpen" style="margin-right:10px">打开录音,开始录制</button>
                     <button @click="recClose" style="margin-right:0">关闭录音,释放资源</button>
                 </div>
 
-                <button @click="recStart">录制</button>
-                <button @click="recStop">停止</button>
-
-                <span style="display: inline-block;">
-                    <button @click="recPause">暂停</button>
-                    <button @click="recResume">继续</button>
-                </span>
-                <span style="display: inline-block;">
-                    <button @click="recPlayLast" v-if="type !== 'pcm'">播放</button>
-                    <button @click="recUploadLast" v-if="type === 'pcm'">语音转文字</button>
-                    </span>
             </div>
         </div>
 
@@ -113,7 +102,7 @@ import 'recorder-core/src/engine/pcm'
 import 'recorder-core/src/extensions/buffer_stream.player'
 import 'recorder-core/src/extensions/waveview'
 
-import { sendPcm, getResult } from '../api/sendData'
+import { getResult } from '../api/sendData'
 
 export default {
   name: 'fragment',
@@ -184,12 +173,13 @@ export default {
         this.realTimeSendTryChunk = null
       };
       const intervalTime = t1 - this.realTimeSendTryTime
+
       if (!isClose && (intervalTime < this.sendInterval)) {
-        console.log('达到指定间隔')
         return// 控制缓冲达到指定间隔才进行传输
       };
       this.realTimeSendTryTime = t1
-      //   var number = ++this.realTimeSendTryNumber
+      var number = ++this.realTimeSendTryNumber
+
       if (buffers.length > 0) {
         // 借用SampleData函数进行数据的连续处理，采样率转换是顺带的，得到新的pcm数据
         var chunk = Recorder.SampleData(buffers, bufferSampleRate, this.sampleRate, this.realTimeSendTryChunk, { frameType: isClose ? '' : this.type })
@@ -198,60 +188,81 @@ export default {
         for (var i = this.realTimeSendTryChunk ? this.realTimeSendTryChunk.index : 0; i < chunk.index; i++) {
           buffers[i] = null
         };
-        this.realTimeSendTryChunk = chunk// 此时的chunk.data就是原始的音频16位pcm数据（小端LE），直接保存即为16位pcm文件、加个wav头即为wav文件、丢给mp3编码器转一下码即为mp3文件
 
-        this.pcm = chunk.data
+        // 此时的chunk.data就是原始的音频16位pcm数据（小端LE），直接保存即为16位pcm文件、加个wav头即为wav文件、丢给mp3编码器转一下码即为mp3文件
+        this.realTimeSendTryChunk = chunk
+        this.pcm = new Blob(chunk.data, { type: 'audio/pcm' })
         this.pcmSampleRate = chunk.sampleRate
+
+        // this.recUploadLast()
+        this.transferUpload(number, this.pcm, false)
+
+        const logMsg = 'No.' + (number < 100 ? ('000' + number).substr(-3) : number)
+        this.reclog(logMsg)
       };
 
       // 没有新数据，或结束时的数据量太小，不能进行mock转码
-      if ((chunk.data.length === 0 || isClose) && chunk.data.length < 2000) {
-        //   TransferUpload(number, null, 0, null, isClose)
+      if (this.pcm.length === 0 || (isClose && this.pcm.length < 2000)) {
+        this.transferUpload(number, null, 0, null, isClose)
         return
       };
 
       // 实时编码队列阻塞处理
       if (!isClose) {
         if (this.realTimeSendTryEncBusy >= 2) {
-          this.reclog('编码队列阻塞，已丢弃一帧', 1)
+          console.log('编码队列阻塞，已丢弃一帧')
           return
         };
       };
       this.realTimeSendTryEncBusy++
 
-      // 通过mock方法实时转码成mp3、wav；pcm格式可以不经过此操作，直接发送chunk.data
-      var encStartTime = Date.now()
-      var recMock = Recorder({
-        type: this.type,
-        sampleRate: this.sampleRate, // 采样率
-        bitRate: this.bitRate // 比特率
-      })
-      recMock.mock(chunk.data, chunk.sampleRate)
-      recMock.stop(function (blob, duration) {
-        this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
-        blob.encTime = Date.now() - encStartTime
+      // 通过mock方法实时转码成mp3、wav；16位pcm格式可以不经过此操作，直接发送new Blob([pcm],"audio/pcm") 要8位的就必须转码
+      if (this.bitRate === 8) {
+        var encStartTime = Date.now()
+        var recMock = Recorder({
+          type: 'pcm',
+          sampleRate: this.sampleRate, // 采样率
+          bitRate: this.bitRate // 比特率
+        })
+        recMock.mock(this.pcm, this.pcmSampleRate)
+        recMock.stop(function (blob, duration) {
+          this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
+          blob.encTime = Date.now() - encStartTime
 
-        // 转码好就推入传输
-        // TransferUpload(number, blob, duration, recMock, isClose)
-      }, function (msg) {
-        this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
+          // 转码好就推入传输
+          this.transferUpload(number, blob, isClose)
+        }, function (msg) {
+          this.realTimeSendTryEncBusy && (this.realTimeSendTryEncBusy--)
 
-        // 转码错误？没想到什么时候会产生错误！
-        this.reclog('不应该出现的错误:' + msg, 1)
-      })
+          // 转码错误？没想到什么时候会产生错误！
+          this.reclog('不应该出现的错误:' + msg, 1)
+        })
+      }
     },
 
     recOpen () {
       var This = this
+      if (This.rec) {
+        This.rec.close()
+      };
+
       var rec = this.rec = Recorder({
         type: This.type,
         bitRate: This.bitRate,
         sampleRate: This.sampleRate,
         onProcess: function (buffers, powerLevel, duration, sampleRate) {
+          // 录音实时回调，大约1秒调用12次本回调，buffers为开始到现在的所有录音pcm数据块(16位小端LE)
+          // 可实时绘制波形（extensions目录内的waveview.js、wavesurfer.view.js、frequency.histogram.view.js插件功能）
+          // 可实时上传（发送）数据，配合Recorder.SampleData方法，将buffers中的新数据连续的转换成pcm上传，或使用mock方法将新数据连续的转码成其他格式上传，可以参考文档里面的：Demo片段列表 -> 实时转码并上传-通用版；基于本功能可以做到：实时转发数据、实时保存数据、实时语音识别（ASR）等
           This.duration = duration
           This.powerLevel = powerLevel
+          // 推入实时处理，因为是unknown格式，buffers和rec.buffers是完全相同的（此时采样率为浏览器采集音频的原始采样率），只需清理buffers就能释放内存，其他格式不一定有此特性。
           This.realTimeSendTry(buffers, sampleRate, false)
-          This.wave.input(buffers[buffers.length - 1], powerLevel, sampleRate)
+
+          // const pcmData = buffers[buffers.length - 1]
+          // console.log(pcmData, 222)
+
+          This.wave.input([], powerLevel, sampleRate)
         }
       })
 
@@ -261,10 +272,13 @@ export default {
 
       rec.open(function () {
         This.dialogCancel()
-        rec.start()// 开始录音
+        rec.start()
+
+        // 每次开始录音重制环境
+        This.realTimeSendTryTime = 0
         This.reclog('已打开:' + This.type + ' ' + This.sampleRate + 'hz ' + This.bitRate + 'kbps', 2)
 
-        This.wave = Recorder.WaveView({ elem: '.ctrlProcessWave' })
+        This.wave = Recorder.WaveView({ elem: '.processWave' })
       }, function (msg, isUserNotAllow) {
         This.dialogCancel()
         This.reclog((isUserNotAllow ? 'UserNotAllow，' : '') + '打开失败：' + msg, 1)
@@ -279,88 +293,66 @@ export default {
       const rec = this.rec
       this.rec = null
       if (rec) {
+        // 最后完成录音时不能调用stop，因为数据已经被清掉了
         rec.close()
-        this.reclog('已关闭')
+        // 最后一次发送
+        this.realTimeSendTry(0, [], true)
       } else {
         this.reclog('未打开录音', 1)
       };
     },
-    recStart () {
-      if (!this.rec || !Recorder.IsOpen()) {
-        this.reclog('未打开录音', 1)
-        return
-      }
-      this.sid = this.$uuid.v1()
-      this.rec.start()
+    //= ====数据传输函数==========
+    transferUpload (number, blobOrNull, isClose) {
+      this.transferUploadNumberMax = Math.max(this.transferUploadNumberMax, number)
+      if (blobOrNull) {
+        var blob = blobOrNull
 
-      var set = this.rec.set
-      this.reclog('录制中：' + set.type + ' ' + set.sampleRate + 'hz ' + set.bitRate + 'kbps')
-    },
-    recPause () {
-      if (this.rec && Recorder.IsOpen()) {
-        this.rec.pause()
-      } else {
-        this.reclog('未打开录音', 1)
+        this.blobToBase64(blob).then(res => {
+          console.log('base64', res.split(',')[1])
+        })
+      };
+
+      if (isClose) {
+        this.reclog('No.' + (number < 100 ? ('000' + number).substr(-3) : number) + ':已停止传输')
       };
     },
-    recResume () {
-      if (this.rec && Recorder.IsOpen()) {
-        this.rec.resume()
-      } else {
-        this.reclog('未打开录音', 1)
-      };
+    blobToBase64 (blob) {
+      return new Promise((resolve, reject) => {
+        const fileReader = new FileReader()
+        fileReader.onload = (e) => {
+          resolve(e.target.result)
+        }
+        // readAsDataURL
+        fileReader.readAsDataURL(blob)
+        fileReader.onerror = () => {
+          reject(new Error('blobToBase64 error'))
+        }
+      })
     },
-    recStop () {
-      var This = this
-      var rec = This.rec
-      if (!(this.rec && Recorder.IsOpen())) {
-        This.reclog('未打开录音', 1)
-        return
-      }
-      rec.close()
-      This.realTimeSendTry([], 0, false)
-    //   rec.stop(function (blob, duration) {
-    //     This.reclog('已录制:', 1, {
-    //       blob: blob,
-    //       duration: duration,
-    //       rec: rec
-    //     })
-    //     // console.log(blob, duration, rec)
-    //   }, function (s) {
-    //     This.reclog('录音失败：' + s, 1)
-    //   })
-    },
-    recPlayLast () {
-      if (!this.recLogLast) {
-        this.reclog('请先录音，然后停止后再播放', 1)
-        return
-      };
-      this.recplay(this.recLogLast.idx)
-    },
+
     recUploadLast () {
-      if (!this.recLogLast) {
-        this.reclog('请先录音，然后停止后再上传', 1)
-        return
-      };
+      // if (!this.pcm) {
+      //   this.reclog('请先录音，然后停止后再上传', 1)
+      //   return
+      // };
       var This = this
-      var blob = This.recLogLast.res.blob
+      var blob = This.pcm
       var reader = new FileReader()
       reader.onloadend = function () {
         const postData = reader.result.split(',')[1]
         const data = new FormData()
         data.append('fileInfo', postData)
         data.append('sid', This.sid)
-
-        sendPcm(data).then((res) => {
-          if (res.result === 'success') {
-            This.showResult()
-          } else {
-            This.reclog('上传出错')
-          }
-        }).catch(() => {})
+        console.log(...data, postData)
+        // sendPcm(data).then((res) => {
+        //   if (res.result === 'success') {
+        //     This.showResult()
+        //   } else {
+        //     This.reclog('上传出错')
+        //   }
+        // }).catch(() => {})
       }
       reader.readAsDataURL(blob)
-      This.reclog('正在进行语音转文字，请稍后...', '#f60')
     },
     async showResult () {
       await getResult({ sid: this.sid }).then(res => {
